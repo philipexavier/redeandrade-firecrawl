@@ -87,7 +87,7 @@ function validateSchemaForOpenAI(schema: any): boolean {
     
     if (obj.hasOwnProperty('additionalProperties')) return true;
     
-    if (obj.type === 'object' && !obj.hasOwnProperty('properties')) return true;
+    if (obj.type === 'object' && !obj.hasOwnProperty('properties') && !obj.hasOwnProperty('patternProperties')) return true;
     
     for (const value of Object.values(obj)) {
       if (typeof value === 'object' && value !== null) {
