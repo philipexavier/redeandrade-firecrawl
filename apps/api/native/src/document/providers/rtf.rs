@@ -1,4 +1,4 @@
-use crate::document::document::*;
+use crate::document::model::*;
 use crate::document::providers::DocumentProvider;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use std::error::Error;

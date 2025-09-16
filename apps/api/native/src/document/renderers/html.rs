@@ -1,4 +1,4 @@
-use crate::document::document::*;
+use crate::document::model::*;
 use maud::{html, Markup, DOCTYPE};
 
 pub struct HtmlRenderer;

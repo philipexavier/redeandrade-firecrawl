@@ -1,4 +1,4 @@
-use crate::document::document::Document;
+use crate::document::model::Document;
 use std::error::Error;
 
 pub mod docx;

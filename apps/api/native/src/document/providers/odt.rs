@@ -1,4 +1,4 @@
-use crate::document::document::*;
+use crate::document::model::*;
 use crate::document::providers::DocumentProvider;
 use chrono::{DateTime, Utc};
 use roxmltree::{Document as XmlDoc, Node};
@@ -25,7 +25,7 @@ impl DocumentProvider for OdtProvider {
     let styles = read_styles(&mut zip);
 
     let content =
-      read_zip_text(&mut zip, "content.xml").ok_or_else(|| "Missing content.xml in document")?;
+      read_zip_text(&mut zip, "content.xml").ok_or("Missing content.xml in document")?;
     let xml = XmlDoc::parse(strip_bom(&content))?;
 
     let mut notes: Vec<Note> = Vec::new();

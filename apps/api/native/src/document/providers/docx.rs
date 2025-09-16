@@ -1,4 +1,4 @@
-use crate::document::document::*;
+use crate::document::model::*;
 use crate::document::providers::DocumentProvider;
 use chrono::{DateTime, Utc};
 use roxmltree::{Document as XmlDoc, Node};
@@ -26,7 +26,7 @@ impl DocumentProvider for DocxProvider {
     let numbering = read_numbering(&mut zip);
 
     let document_xml = read_zip_text(&mut zip, "word/document.xml")
-      .ok_or_else(|| "Missing word/document.xml in document")?;
+      .ok_or("Missing word/document.xml in document")?;
     let xml = XmlDoc::parse(strip_bom(&document_xml))?;
 
     let metadata = read_core_properties(&mut zip).unwrap_or_default();

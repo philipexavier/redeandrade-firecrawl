@@ -12,17 +12,6 @@ pub enum DocumentType {
   Odt,
 }
 
-impl DocumentType {
-  pub fn from_str(s: &str) -> Option<Self> {
-    match s.to_lowercase().as_str() {
-      "docx" => Some(Self::Docx),
-      "rtf" => Some(Self::Rtf),
-      "odt" => Some(Self::Odt),
-      _ => None,
-    }
-  }
-}
-
 pub struct ProviderFactory {
   docx_provider: DocxProvider,
   rtf_provider: RtfProvider,
