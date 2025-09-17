@@ -1,7 +1,5 @@
 /**
- * PDF Parser Engine with Intelligent Racing and Fallback
- *
- * ## Processing Strategies (in order):
+ * PDF Parser Engine
  *
  * 1. **Racing Mode**: When both RunPod MU and Reducto are available (PDFs < 19MB)
  *    - Starts with RunPod MU
