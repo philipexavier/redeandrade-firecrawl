@@ -13,7 +13,7 @@ type BlocklistBlob = {
 let blob: BlocklistBlob | null = null;
 
 export async function initializeBlocklist() {
-  if (process.env.USE_DB_AUTHENTICATION === "false") {
+  if (process.env.USE_DB_AUTHENTICATION !== "true") {
     blob = {
       blocklist: [],
       allowedKeywords: [],
