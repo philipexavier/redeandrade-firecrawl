@@ -681,7 +681,22 @@ export function nuqGetLocalMetrics(): string {
 export async function nuqHealthCheck(): Promise<boolean> {
   const start = Date.now();
   try {
-    return (await nuqPool.query("SELECT 1;")).rowCount !== 0;
+    // Check PostgreSQL health
+    const pgHealthy = (await nuqPool.query("SELECT 1;")).rowCount !== 0;
+
+    // Check RabbitMQ health if enabled
+    const rabbitmqHealthy = rabbitmqService
+      ? await rabbitmqService.isHealthy()
+      : true;
+
+    return pgHealthy && rabbitmqHealthy;
+  } catch (error) {
+    logger.error("nuqHealthCheck failed", {
+      module: "nuq/metrics",
+      method: "nuqHealthCheck",
+      error,
+    });
+    return false;
   } finally {
     logger.info("nuqHealthCheck metrics", {
       module: "nuq/metrics",

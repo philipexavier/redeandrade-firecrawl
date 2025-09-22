@@ -2,7 +2,6 @@ import "dotenv/config";
 import { logger as _logger } from "../../lib/logger";
 import { processJobInternal } from "./scrape-worker";
 import { scrapeQueue, nuqGetLocalMetrics, nuqHealthCheck, nuqShutdown } from "./nuq";
-import { getRabbitMQService } from "./nuq-rabbitmq";
 import Express from "express";
 import { _ } from "ajv";
 import { initializeBlocklist } from "../../scraper/WebScraper/utils/blocklist";
@@ -24,17 +23,10 @@ import { initializeBlocklist } from "../../scraper/WebScraper/utils/blocklist";
     res.contentType("text/plain").send(nuqGetLocalMetrics()),
   );
   app.get("/health", async (_, res) => {
-    const nuqHealthy = await nuqHealthCheck();
-    const rabbitmqService = getRabbitMQService();
-    const rabbitmqHealthy = rabbitmqService ? await rabbitmqService.isHealthy() : true;
-
-    if (nuqHealthy && rabbitmqHealthy) {
+    if (await nuqHealthCheck()) {
       res.status(200).send("OK");
     } else {
-      const issues: string[] = [];
-      if (!nuqHealthy) issues.push("NuQ");
-      if (!rabbitmqHealthy) issues.push("RabbitMQ");
-      res.status(500).send(`Not OK: ${issues.join(", ")} unhealthy`);
+      res.status(500).send("Not OK");
     }
   });
 
