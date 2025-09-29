@@ -1550,6 +1550,26 @@ describe("Scrape tests", () => {
         },
         scrapeTimeout,
       );
+
+      it.concurrent(
+        "should not generate summary when markdown is empty",
+        async () => {
+          const response = await scrape(
+            {
+              url: "https://httpbin.org/robots.txt",
+              formats: ["markdown", "summary"],
+            },
+            identity,
+          );
+
+          expect(response.markdown).toBeDefined();
+          expect(response.summary).toBeUndefined();
+          expect(response.warning).toContain(
+            "Summary generation was skipped because the markdown content is empty",
+          );
+        },
+        scrapeTimeout,
+      );
     });
   }
 
