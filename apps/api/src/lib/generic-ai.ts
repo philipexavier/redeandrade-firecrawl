@@ -9,6 +9,7 @@ import { fireworks } from "@ai-sdk/fireworks";
 import { deepinfra } from "@ai-sdk/deepinfra";
 import { createVertex } from "@ai-sdk/google-vertex";
 import { existsSync } from "fs";
+import { logger } from "./logger";
 
 type Provider =
   | "openai"
@@ -39,7 +40,7 @@ const createGoogleVertexAuthOptions = () => {
           keyFile: vertexCredentials,
         };
       } else {
-        console.error(
+        logger.error(
           "Failed to parse VERTEX_CREDENTIALS environment variable. It should be a base64-encoded JSON string or a valid file path. Failing back to default keyFile.",
         );
       }
