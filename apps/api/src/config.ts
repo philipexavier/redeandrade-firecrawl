@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
+import { logger } from "./lib/logger";
 
 // need these optional wrappers in-case of empty strings in env files
 const optionalUrl = z.preprocess(
@@ -28,13 +29,15 @@ const defaultString = (defaultValue: string) =>
     z.string(),
   );
 
-const strbool = (defaultValue: boolean) =>
-  z
-    .preprocess(
-      val => (val === "true" || val === "1" ? true : false),
-      z.boolean(),
-    )
-    .default(defaultValue);
+const strbool = (defaultValue: boolean, message?: string) =>
+  z.preprocess(
+    val => (val === "true" || val === "1" ? true : val),
+    z
+      .boolean({
+        message,
+      })
+      .default(defaultValue),
+  );
 
 const port = (def: number) =>
   z
@@ -58,7 +61,7 @@ const base = z.object({
     .default("INFO"),
 
   NUQ_DATABASE_URL: defaultUrl(
-    "postgres://postgres:postgres@nuq-postgres:5433/postgres",
+    "postgres://postgres:postgres@nuq-postgres:5432/postgres",
     "Must be a valid database URL",
   ),
 
@@ -79,13 +82,13 @@ const base = z.object({
     .default("CHANGEME"),
 
   // TODO: should probably change everything to use this as it enforces the default false
-  USE_DB_AUTHENTICATION: strbool(false),
+  USE_DB_AUTHENTICATION: strbool(false, "Must be true or false"),
 
   SELF_HOSTED_WEBHOOK_URL: optionalUrl,
   SELF_HOSTED_WEBHOOK_HMAC_SECRET: optionalStr,
-  ALLOW_LOCAL_WEBHOOKS: strbool(false),
+  ALLOW_LOCAL_WEBHOOKS: strbool(false, "Must be true or false"),
 
-  PROXY_SERVER: optionalUrl,
+  PROXY_SERVER: optionalStr,
   PROXY_USERNAME: optionalStr,
   PROXY_PASSWORD: optionalStr,
 
@@ -151,28 +154,19 @@ let config: z.infer<typeof envSchema>;
 
 try {
   config = envSchema.parse(process.env);
-
-  //   console.info(
-  //     `Running in ${config.USE_DB_AUTHENTICATION ? "cloud" : "self-hosted"} mode`,
-  //   );
-
-  //   console.info("Configuration:");
-  //   for (const [key, value] of Object.entries(config)) {
-  //     console.info(`  ${key}: ${value}`);
-  //   }
 } catch (err) {
   if (err instanceof z.ZodError) {
-    console.error("Problems found with environment variables:");
+    logger.error("Problems found with environment variables:");
     for (const issue of err.issues) {
       if (issue.path && issue.path.length > 0) {
-        console.error(` - ${issue.path.join(".")}: ${issue.message}`);
+        logger.error(` - ${issue.path.join(".")}: ${issue.message}`);
       } else {
-        console.error(` - ${issue.message}`);
+        logger.error(` - ${issue.message}`);
       }
     }
-    console.error("");
+    logger.error("");
   } else {
-    console.error("Unexpected error:", err);
+    logger.error("Unexpected error:", err);
   }
   process.exit(1);
 }

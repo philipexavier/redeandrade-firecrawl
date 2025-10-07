@@ -1,6 +1,5 @@
+import "dotenv/config";
 import * as winston from "winston";
-
-import { config } from "../config";
 
 const logFormat = winston.format.printf(
   info =>
@@ -35,7 +34,7 @@ const zeroDataRetentionFilter = winston.format(info => {
 })();
 
 export const logger = winston.createLogger({
-  level: config.LOGGING_LEVEL?.toLowerCase() ?? "debug",
+  level: process.env.LOGGING_LEVEL?.toLowerCase() ?? "debug",
   format: winston.format.json({
     replacer(key, value) {
       if (value instanceof Error) {
