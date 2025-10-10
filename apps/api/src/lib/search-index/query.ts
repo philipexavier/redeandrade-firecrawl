@@ -181,7 +181,7 @@ async function hybridSearch(
     // BM25 search in Postgres
     supabase.rpc("bm25_search", {
       query_text: query,
-      result_limit: 100,
+      result_limit: Math.max(100, limit), // Ensure we fetch enough results for proper ranking
       country_filter: filters.country ?? null,
       domain_filter: filters.domain ?? null,
       is_mobile_filter: filters.isMobile ?? null,
@@ -194,7 +194,7 @@ async function hybridSearch(
         const pineconeFilter = buildPineconeFilter(filters);
         const results = await searchPinecone(
           queryEmbedding!,
-          100,
+          Math.max(100, limit), // Ensure we fetch enough results for proper ranking
           pineconeFilter,
           "documents",
           logger,

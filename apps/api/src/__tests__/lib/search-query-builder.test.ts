@@ -4,6 +4,7 @@ import {
   getCategoryFromUrl,
   getDefaultResearchSites,
 } from "../../lib/search-query-builder";
+import { search, SearchQuery } from "../../lib/search-index/query";
 
 describe("Search Query Builder", () => {
   describe("buildSearchQuery", () => {
@@ -265,5 +266,69 @@ describe("Search Query Builder", () => {
         expect(result.categoryMap.get(site)).toBe("research");
       });
     });
+  });
+});
+
+// Mock modules for search index tests
+jest.mock("../../lib/search-index/embeddings", () => ({
+  isEmbeddingEnabled: () => false,
+}));
+
+jest.mock("../../lib/search-index/pinecone-service", () => ({
+  isPineconeEnabled: () => false,
+}));
+
+describe("Search Index Query - Offset Pagination Fix", () => {
+  it("should fetch limit + offset results for keyword search to support pagination", async () => {
+    // Mock Supabase client
+    const mockLimit = jest.fn(() => ({ data: [], error: null }));
+    const mockTextSearch = jest.fn(() => ({
+      eq: jest.fn(() => ({ limit: mockLimit })),
+    }));
+    const mockSelect = jest.fn(() => ({ textSearch: mockTextSearch }));
+    const mockFrom = jest.fn(() => ({ select: mockSelect }));
+    
+    const mockSupabaseClient = {
+      from: mockFrom,
+    } as any;
+
+    // Test with offset=5, limit=3
+    const searchQuery: SearchQuery = {
+      query: "test query",
+      limit: 3,
+      offset: 5,
+      mode: "keyword",
+    };
+
+    await search(mockSupabaseClient, searchQuery);
+
+    // Should fetch limit + offset = 8 results to support pagination
+    expect(mockLimit).toHaveBeenCalledWith(8);
+  });
+
+  it("should fetch enough results for hybrid search pagination", async () => {
+    // Mock embeddings and pinecone to be disabled so it falls back to keyword search
+    const mockLimit = jest.fn(() => ({ data: [], error: null }));
+    const mockTextSearch = jest.fn(() => ({
+      eq: jest.fn(() => ({ limit: mockLimit })),
+    }));
+    const mockSelect = jest.fn(() => ({ textSearch: mockTextSearch }));
+    const mockFrom = jest.fn(() => ({ select: mockSelect }));
+    
+    const mockSupabaseClient = {
+      from: mockFrom,
+    } as any;
+
+    const searchQuery: SearchQuery = {
+      query: "test query",
+      limit: 10,
+      offset: 15,
+      mode: "hybrid", // Will fall back to keyword since pinecone is disabled
+    };
+
+    await search(mockSupabaseClient, searchQuery);
+
+    // Should fetch limit + offset = 25 results for proper pagination
+    expect(mockLimit).toHaveBeenCalledWith(25);
   });
 });
