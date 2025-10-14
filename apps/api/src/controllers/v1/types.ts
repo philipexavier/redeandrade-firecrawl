@@ -1480,6 +1480,7 @@ export const searchRequestSchema = z
   .refine(x => waitForRefine(x.scrapeOptions), waitForRefineOpts)
   .transform(x => ({
     ...x,
+    country: x.location ? undefined : x.country,
     scrapeOptions: extractTransform(x.scrapeOptions),
   }));
 
