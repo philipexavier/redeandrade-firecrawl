@@ -159,7 +159,9 @@ function buildFeatureFlags(
   if (
     lowerPath.endsWith(".docx") ||
     lowerPath.endsWith(".odt") ||
-    lowerPath.endsWith(".rtf")
+    lowerPath.endsWith(".rtf") ||
+    lowerPath.endsWith(".xlsx") ||
+    lowerPath.endsWith(".xls")
   ) {
     flags.add("document");
   }
