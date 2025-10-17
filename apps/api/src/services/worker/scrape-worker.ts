@@ -58,7 +58,7 @@ import {
   UnknownError,
 } from "../../lib/error";
 import { serializeTransportableError } from "../../lib/error-serde";
-import type { NuQJob } from "./nuq";
+import { NUQ_MAX_RABBIT_BLOB_SIZE, type NuQJob } from "./nuq";
 import {
   ScrapeJobData,
   ScrapeJobKickoff,
@@ -237,6 +237,7 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
         ],
       },
       document: doc,
+      forwardRabbit: false,
     };
 
     if (job.data.crawl_id) {
@@ -338,10 +339,7 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
           // Store robots blocked URLs in Redis set
           for (const [url, reason] of links.denialReasons) {
             if (reason === "URL blocked by robots.txt") {
-              await recordRobotsBlocked(
-                job.data.crawl_id,
-                url
-              );
+              await recordRobotsBlocked(job.data.crawl_id, url);
             }
           }
 
@@ -513,7 +511,10 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
 
       doc.metadata.creditsUsed = credits_billed ?? undefined;
 
-      await logJob(
+      const blobStr = JSON.stringify(doc);
+      const blobSize = Buffer.byteLength(blobStr, "utf8");
+
+      const logPromise = logJob(
         {
           job_id: job.id,
           success: true,
@@ -538,7 +539,22 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
         },
         false,
         job.data.internalOptions?.bypassBilling ?? false,
-      );
+      ).catch(e => {
+        logger.error("Failed to save log for job", { error: e, jobId: job.id });
+      });
+
+      if (
+        !process.env.NUQ_RABBITMQ_URL ||
+        blobSize > NUQ_MAX_RABBIT_BLOB_SIZE
+      ) {
+        await logPromise;
+        logger.debug("Job blob too large for RabbitMQ, not forwarding", {
+          blobSize,
+        });
+      } else {
+        data.forwardRabbit = true;
+        logger.debug("Forwarding job result to RabbitMQ", { blobSize });
+      }
     }
 
     logger.info(`🐂 Job done ${job.id}`);
@@ -552,15 +568,12 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
         error instanceof Error &&
         error.message === "URL blocked by robots.txt"
       ) {
-        await recordRobotsBlocked(
-          job.data.crawl_id,
-          job.data.url,
-        );
+        await recordRobotsBlocked(job.data.crawl_id, job.data.url);
       }
     } catch (e) {
       logger.debug("Failed to record top-level robots block", { e });
     }
-    
+
     if (job.data.crawl_id) {
       const sc = (await getCrawl(job.data.crawl_id)) as StoredCrawl;
 
@@ -618,6 +631,7 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
           : typeof error === "string"
             ? new Error(error)
             : new Error(JSON.stringify(error)),
+      forwardRabbit: false,
     };
 
     if (job.data.crawl_id) {
@@ -1160,13 +1174,18 @@ async function processJobWithTracing(job: NuQJob<ScrapeJobData>, logger: any) {
             }
 
             try {
+              if (process.env.NUQ_RABBITMQ_URL && result.forwardRabbit) {
+                logger.debug("Job succeeded -- returning result to RabbitMQ");
+                return result.document;
+              }
+
               if (process.env.GCS_BUCKET_NAME) {
                 logger.debug("Job succeeded -- putting null in Redis");
                 return null;
-              } else {
-                logger.debug("Job succeeded -- putting result in Redis");
-                return result.document;
               }
+
+              logger.debug("Job succeeded -- putting result in Redis");
+              return result.document;
             } catch (e) {}
           } else {
             throw (result as any).error;
