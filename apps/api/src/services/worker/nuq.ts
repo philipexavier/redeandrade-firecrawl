@@ -283,7 +283,7 @@ class NuQ<JobData = any, JobReturnValue = any> {
     await this.startSender();
 
     if (this.sender) {
-      await this.sender.channel.sendToQueue(
+      this.sender.channel.sendToQueue(
         this.queueName + ".listen." + listenChannelId,
         Buffer.from(status, "utf8"),
         {
@@ -303,7 +303,7 @@ class NuQ<JobData = any, JobReturnValue = any> {
     await this.startSender();
 
     if (this.sender) {
-      await this.sender.channel.sendToQueue(
+      this.sender.channel.sendToQueue(
         this.queueName + ".prefetch",
         Buffer.from(JSON.stringify(job), "utf8"),
         {
@@ -1488,6 +1488,69 @@ class NuQ<JobData = any, JobReturnValue = any> {
     });
   }
 
+  public async getOwnerJobCounts(
+    ownerId: string,
+    _logger: Logger = logger,
+  ): Promise<{ active: number; queued: number }> {
+    const start = Date.now();
+    try {
+      const result = await nuqPool.query(
+        `SELECT
+          COALESCE(SUM(CASE WHEN status = 'active'::nuq.job_status THEN 1 ELSE 0 END), 0)::int as active,
+          COALESCE(SUM(CASE WHEN status = 'queued'::nuq.job_status THEN 1 ELSE 0 END), 0)::int as queued
+        FROM ${this.queueName}
+        WHERE owner_id = $1;`,
+        [ownerId],
+      );
+
+      return {
+        active: result.rows[0]?.active ?? 0,
+        queued: result.rows[0]?.queued ?? 0,
+      };
+    } finally {
+      _logger.info("nuqGetOwnerJobCounts metrics", {
+        module: "nuq/metrics",
+        method: "nuqGetOwnerJobCounts",
+        duration: Date.now() - start,
+        ownerId,
+      });
+    }
+  }
+
+  public async getOwnerConcurrency(
+    ownerId: string,
+    _logger: Logger = logger,
+  ): Promise<{
+    currentConcurrency: number;
+    maxConcurrency: number;
+  } | null> {
+    const start = Date.now();
+    try {
+      const result = await nuqPool.query(
+        `SELECT current_concurrency, max_concurrency
+        FROM ${this.queueName}_owner_concurrency
+        WHERE id = $1;`,
+        [ownerId],
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      return {
+        currentConcurrency: result.rows[0].current_concurrency,
+        maxConcurrency: result.rows[0].max_concurrency,
+      };
+    } finally {
+      _logger.info("nuqGetOwnerConcurrency metrics", {
+        module: "nuq/metrics",
+        method: "nuqGetOwnerConcurrency",
+        duration: Date.now() - start,
+        ownerId,
+      });
+    }
+  }
+
   // === Metrics
   public async getMetrics(): Promise<string> {
     const start = Date.now();
@@ -1650,6 +1713,20 @@ class NuQ<JobData = any, JobReturnValue = any> {
 type NuQGroupOptions = {
   memberQueues: NuQ[];
   finishQueue?: NuQ;
+  groupTTL: number;
+};
+
+type NuQGroupConcurrencySettings = {
+  queue: NuQ;
+  maxConcurrency?: number;
+};
+
+type NuQGroupInstance = {
+  id: string;
+  status: "active" | "completed";
+  createdAt: Date;
+  finishedAt: Date;
+  expiresAt: Date;
 };
 
 class NuQGroup {
@@ -1658,7 +1735,71 @@ class NuQGroup {
     public readonly options: NuQGroupOptions,
   ) {}
 
-  public async addGroup(id: string) {}
+  private groupReturning = [
+    "id",
+    "status",
+    "created_at",
+    "finished_at",
+    "expires_at",
+  ];
+
+  private rowToGroup(row: any): NuQGroupInstance | null {
+    if (!row) return null;
+    return {
+      id: row.id,
+      status: row.status,
+      createdAt: new Date(row.created_at),
+      finishedAt: new Date(row.finished_at),
+      expiresAt: new Date(row.expires_at),
+    };
+  }
+
+  public async addGroup(
+    id: string,
+    maxConcurrency: NuQGroupConcurrencySettings[],
+  ): Promise<NuQGroupInstance> {
+    const client = await nuqPool.connect();
+
+    await client.query("BEGIN");
+
+    try {
+      const insert = await client.query(
+        `INSERT INTO ${this.groupName} (id) VALUES ($1) RETURNING ${this.groupReturning.join(", ")};`,
+        [id],
+      );
+
+      if (maxConcurrency.length > 0) {
+        for (const entry of maxConcurrency) {
+          if (entry.queue.options.concurrencyLimit === "per-owner-per-group") {
+            await client.query(
+              `INSERT INTO ${entry.queue.queueName}_group_concurrency (id, current_concurrency, max_concurrency) VALUES ($1, 0, $2);`,
+              [id, entry.maxConcurrency ?? null],
+            );
+          }
+        }
+      }
+
+      await client.query("COMMIT");
+      client.release();
+
+      return this.rowToGroup(insert.rows[0])!;
+    } catch (e) {
+      await client.query("ROLLBACK");
+      client.release(e);
+      throw e;
+    }
+  }
+
+  public async getGroup(id: string): Promise<NuQGroupInstance | null> {
+    return this.rowToGroup(
+      (
+        await nuqPool.query(
+          `SELECT ${this.groupReturning.join(", ")} FROM ${this.groupName} WHERE id = $1 LIMIT 1;`,
+          [id],
+        )
+      ).rows[0],
+    );
+  }
 }
 
 // === Utilities
@@ -1689,10 +1830,11 @@ export const scrapeQueue = new NuQ<ScrapeJobData>("nuq.queue_scrape", {
 });
 // export const crawlFinishQueue = new NuQ("nuq.queue_crawl_finish");
 
-// export const crawlGroup = new NuQGroup("nuq.group_crawl", {
-// memberQueues: [scrapeQueue],
-// finishQueue: crawlFinishQueue,
-// });
+export const crawlGroup = new NuQGroup("nuq.group_crawl", {
+  memberQueues: [scrapeQueue],
+  // finishQueue: crawlFinishQueue,
+  groupTTL: 24 * 60 * 60,
+});
 
 // === Cleanup
 

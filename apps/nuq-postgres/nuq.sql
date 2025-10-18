@@ -9,6 +9,12 @@ EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
+DO $$ BEGIN
+  CREATE TYPE nuq.group_status AS ENUM ('active', 'completed', 'cancelled');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
 CREATE TABLE IF NOT EXISTS nuq.queue_scrape (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   status nuq.job_status NOT NULL DEFAULT 'queued'::nuq.job_status,
@@ -70,11 +76,11 @@ CREATE TABLE IF NOT EXISTS nuq.queue_scrape_group_concurrency (
 );
 
 SELECT cron.schedule('nuq_queue_scrape_clean_completed', '*/5 * * * *', $$
-  DELETE FROM nuq.queue_scrape WHERE nuq.queue_scrape.status = 'completed'::nuq.job_status AND nuq.queue_scrape.created_at < now() - interval '1 hour';
+  DELETE FROM nuq.queue_scrape WHERE nuq.queue_scrape.status = 'completed'::nuq.job_status AND nuq.queue_scrape.group_id IS NULL AND nuq.queue_scrape.created_at < now() - interval '1 hour';
 $$);
 
 SELECT cron.schedule('nuq_queue_scrape_clean_failed', '*/5 * * * *', $$
-  DELETE FROM nuq.queue_scrape WHERE nuq.queue_scrape.status = 'failed'::nuq.job_status AND nuq.queue_scrape.created_at < now() - interval '6 hours';
+  DELETE FROM nuq.queue_scrape WHERE nuq.queue_scrape.status = 'failed'::nuq.job_status AND nuq.queue_scrape.group_id IS NULL AND nuq.queue_scrape.created_at < now() - interval '6 hours';
 $$);
 
 SELECT cron.schedule('nuq_queue_scrape_lock_reaper', '15 seconds', $$
@@ -151,3 +157,44 @@ SELECT cron.schedule('nuq_queue_scrape_concurrency_sync', '*/5 * * * *', $$
   UPDATE nuq.queue_scrape_owner_concurrency
     SET max_concurrency = (SELECT nuq_queue_scrape_owner_resolve_max_concurrency(nuq.queue_scrape_owner_concurrency.id));
 $$);
+
+CREATE TABLE IF NOT EXISTS nuq.group_crawl (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    status nuq.group_status NOT NULL DEFAULT 'active'::nuq.group_status,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    finished_at timestamp with time zone,
+    expires_at timestamp with time zone,
+    CONSTRAINT group_crawl_pkey PRIMARY KEY (id)
+);
+
+CREATE OR REPLACE FUNCTION nuq_queue_scrape_check_group_completion()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.group_id IS NOT NULL THEN
+    UPDATE nuq.group_crawl
+    SET status = 'completed'::nuq.group_status,
+        finished_at = now(),
+        expires_at = now() + interval '24 hours'
+    WHERE id = NEW.group_id
+      AND status != 'completed'::nuq.group_status
+      AND NOT EXISTS (
+        SELECT 1
+        FROM nuq.queue_scrape
+        WHERE group_id = NEW.group_id
+          AND status NOT IN ('completed'::nuq.job_status, 'failed'::nuq.job_status)
+      );
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- Trigger to automatically mark groups as completed
+CREATE OR REPLACE TRIGGER nuq_queue_scrape_group_completion_trigger
+AFTER UPDATE OF status ON nuq.queue_scrape
+FOR EACH ROW
+WHEN (NEW.status IN ('completed'::nuq.job_status, 'failed'::nuq.job_status)
+  AND OLD.status NOT IN ('completed'::nuq.job_status, 'failed'::nuq.job_status))
+EXECUTE FUNCTION nuq_queue_scrape_check_group_completion();
