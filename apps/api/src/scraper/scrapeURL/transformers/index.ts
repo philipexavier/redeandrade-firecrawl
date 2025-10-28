@@ -25,6 +25,7 @@ import {
   mergeBrandingResults,
   ButtonSnapshot,
 } from "../../../lib/branding-llm";
+import { processRawBranding } from "./branding-processor";
 
 type Transformer = (
   meta: Meta,
@@ -184,7 +185,10 @@ async function deriveBrandingFromActions(
   console.log("🔥 document.actions", document?.actions?.javascriptReturns);
 
   const brandingReturnIndex = document.actions?.javascriptReturns?.findIndex(
-    x => x.type === "object" && "fonts" in (x.value as any),
+    x =>
+      x.type === "object" &&
+      ("fonts" in (x.value as any) || // Old format
+        "raw" in (x.value as any)), // New raw format
   );
 
   console.log("🔥 brandingReturnIndex", brandingReturnIndex);
@@ -202,14 +206,25 @@ async function deriveBrandingFromActions(
 
   if (typeof value === "string") {
     try {
-      jsBranding = JSON.parse(value) as BrandingProfile;
+      const parsed = JSON.parse(value);
+      // Check if it's raw format and process it
+      if (parsed.raw) {
+        jsBranding = processRawBranding(parsed.raw);
+      } else {
+        jsBranding = parsed as BrandingProfile;
+      }
     } catch (error) {
       meta.logger.warn("Failed to parse branding javascript return", {
         error,
       });
     }
   } else if (value && typeof value === "object") {
-    jsBranding = value as BrandingProfile;
+    // Check if it's raw format and process it
+    if ((value as any).raw) {
+      jsBranding = processRawBranding((value as any).raw);
+    } else {
+      jsBranding = value as BrandingProfile;
+    }
   }
 
   if (!jsBranding) {

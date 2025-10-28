@@ -354,38 +354,6 @@ function buildBrandingPrompt(input: BrandingLLMInput): string {
   return prompt;
 }
 
-// // Helper to extract button HTML for LLM
-// export function extractButtonContext(
-//   html: string,
-//   maxButtons: number = 5,
-// ): string[] {
-//   // This will be called from the transformer with full HTML
-//   if (typeof window === "undefined") {
-//     // Server-side: parse HTML
-//     return [];
-//   }
-
-//   // Client-side (in browser context)
-//   const parser = new DOMParser();
-//   const doc = parser.parseFromString(html, "text/html");
-
-//   const buttons = Array.from(
-//     doc.querySelectorAll(
-//       'button, [role=button], a.button, a.btn, [class*="btn"]',
-//     ),
-//   )
-//     .slice(0, maxButtons)
-//     .map(btn => {
-//       // Clean up and get outer HTML
-//       const clone = btn.cloneNode(true) as Element;
-//       // Remove event handlers and scripts
-//       clone.querySelectorAll("script").forEach(s => s.remove());
-//       return clone.outerHTML;
-//     });
-
-//   return buttons;
-// }
-
 // Merge JS analysis with LLM enhancement
 export function mergeBrandingResults(
   js: BrandingProfile,
