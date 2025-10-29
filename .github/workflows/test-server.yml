@@ -235,22 +235,8 @@ jobs:
       - name: Run tests
         run: pnpm harness pnpm test:snips
         working-directory: apps/api
-        timeout-minutes: 45
         env:
           npm_config_ignore_scripts: "true" # required currently to prevent re-building cached native lib
-          CI: "true" # Enable full logging in CI mode
-      
-      - name: Debug on timeout/failure
-        if: failure()
-        run: |
-          echo "=== Running processes ==="
-          ps aux | grep -E "(node|pnpm|jest|postgres|docker)" || true
-          echo ""
-          echo "=== Last 200 lines of server log ==="
-          tail -n 200 ./apps/api/firecrawl.log || echo "No log file found"
-          echo ""
-          echo "=== Port usage ==="
-          netstat -tuln | grep LISTEN || ss -tuln | grep LISTEN || true
       
       - name: Copy log files
         if: always()
