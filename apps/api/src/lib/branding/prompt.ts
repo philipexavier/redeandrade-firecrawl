@@ -1,5 +1,6 @@
 import { BrandingProfile } from "../../types/branding";
 import { ButtonSnapshot } from "./types";
+import { parse, rgb } from "culori";
 
 type BrandingLLMInput = {
   jsAnalysis: BrandingProfile;
@@ -44,22 +45,26 @@ export function buildBrandingPrompt(input: BrandingLLMInput): string {
     if (!colorStr || colorStr === "transparent")
       return { isVibrant: false, description: "transparent" };
 
-    // Parse hex or rgb/rgba
     let r = 0,
       g = 0,
       b = 0;
-    if (colorStr.startsWith("#")) {
-      const hex = colorStr.replace("#", "");
-      r = parseInt(hex.substring(0, 2), 16);
-      g = parseInt(hex.substring(2, 2), 16);
-      b = parseInt(hex.substring(4, 2), 16);
-    } else {
-      const match = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-      if (match) {
-        r = parseInt(match[1]);
-        g = parseInt(match[2]);
-        b = parseInt(match[3]);
+    try {
+      const color = parse(colorStr);
+      if (color) {
+        const rgbColor = rgb(color);
+        if (rgbColor && rgbColor.mode === "rgb") {
+          r = Math.round((rgbColor.r ?? 0) * 255);
+          g = Math.round((rgbColor.g ?? 0) * 255);
+          b = Math.round((rgbColor.b ?? 0) * 255);
+        }
       }
+    } catch (e) {
+      return {
+        isVibrant: false,
+        description: "unknown",
+        saturation: "0.00",
+        brightness: "0.00",
+      };
     }
 
     // Calculate saturation and brightness

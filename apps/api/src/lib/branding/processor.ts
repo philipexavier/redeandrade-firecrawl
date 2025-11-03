@@ -1,14 +1,33 @@
 import { BrandingProfile } from "../../types/branding";
 import { BrandingScriptReturn } from "./types";
-import { formatHex } from "culori";
+import { parse, rgb, formatHex } from "culori";
 
 function hexify(rgba: string): string | null {
   if (!rgba) return null;
 
-  // Use culori's formatHex which accepts strings and handles all color formats
-  // According to culori docs: formatHex accepts "color or string"
   try {
-    const hex = formatHex(rgba);
+    const color = parse(rgba);
+    if (!color) return null;
+
+    // Convert to RGB space
+    const rgbColor = rgb(color);
+    if (!rgbColor || rgbColor.mode !== "rgb") {
+      return null;
+    }
+
+    let r = rgbColor.r ?? 0;
+    let g = rgbColor.g ?? 0;
+    let b = rgbColor.b ?? 0;
+    const alpha = rgbColor.alpha ?? 1;
+
+    if (alpha < 1) {
+      r = r * alpha + (1 - alpha);
+      g = g * alpha + (1 - alpha);
+      b = b * alpha + (1 - alpha);
+    }
+
+    const blendedColor = { mode: "rgb" as const, r, g, b };
+    const hex = formatHex(blendedColor);
     return hex ? hex.toUpperCase() : null;
   } catch (e) {
     return null;
