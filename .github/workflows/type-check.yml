@@ -1,0 +1,53 @@
+name: Type Check & Lint
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci=${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  type-check:
+    name: Type Check, Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/api/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: apps/api
+        env:
+          npm_config_ignore_scripts: "true"
+
+      - name: Type check
+        run: npx tsc --noEmit
+        working-directory: apps/api
+
+      - name: Build
+        run: pnpm build
+        working-directory: apps/api
+
+      - name: Check formatting
+        run: pnpm format:check || (echo "::error::Formatting errors found. Forgot to run 'pnpm format'?" && exit 1)
+        working-directory: apps/api
+
+      - name: Run knip
+        run: pnpm knip --cache || (echo "::error::Knip errors found. Forgot to run 'pnpm knip'?" && exit 1)
+        working-directory: apps/api

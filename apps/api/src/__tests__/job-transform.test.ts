@@ -1,5 +1,8 @@
 import { FirecrawlJob } from "../types";
-import { transformJobForLogging, createJobLoggerContext } from "../lib/job-transform";
+import {
+  transformJobForLogging,
+  createJobLoggerContext,
+} from "../lib/job-transform";
 
 describe("Job Transformation", () => {
   it("should transform job correctly for database logging", () => {
