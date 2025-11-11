@@ -1,16 +1,8 @@
 import { supabaseGetJobByIdOnlyData } from "../../lib/supabase-jobs";
 import { getJob } from "./crawl-status";
 import { logger as _logger } from "../../lib/logger";
-import { validate as isUUID } from "uuid";
 
 export async function scrapeStatusController(req: any, res: any) {
-  if (!isUUID(req.params.jobId)) {
-    return res.status(400).json({
-      success: false,
-      error: "Invalid job ID format. Job ID must be a valid UUID.",
-    });
-  }
-
   const logger = _logger.child({
     module: "scrape-status",
     method: "scrapeStatusController",
