@@ -4,7 +4,6 @@ import { logger as _logger } from "../../lib/logger";
 import { validate as isUUID } from "uuid";
 
 export async function scrapeStatusController(req: any, res: any) {
-  // Validate UUID format before hitting any database
   if (!isUUID(req.params.jobId)) {
     return res.status(400).json({
       success: false,

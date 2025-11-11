@@ -175,7 +175,6 @@ export async function crawlStatusController(
   res: Response<CrawlStatusResponse>,
   isBatch = false,
 ) {
-  // Validate UUID format before hitting any database or Redis
   if (!isUUID(req.params.jobId)) {
     return res.status(400).json({
       success: false,

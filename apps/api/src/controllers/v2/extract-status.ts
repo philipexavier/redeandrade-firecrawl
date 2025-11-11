@@ -59,7 +59,6 @@ export async function extractStatusController(
   req: RequestWithAuth<{ jobId: string }, any, any>,
   res: Response,
 ) {
-  // Validate UUID format before hitting any database or Redis
   if (!isUUID(req.params.jobId)) {
     return res.status(400).json({
       success: false,

@@ -62,7 +62,6 @@ async function crawlStatusWS(
   ws: WebSocket,
   req: RequestWithAuth<CrawlStatusParams, undefined, undefined>,
 ) {
-  // Validate UUID format before hitting any database or Redis
   if (!isUUID(req.params.jobId)) {
     return close(ws, 1008, {
       type: "error",

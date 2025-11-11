@@ -19,7 +19,6 @@ export async function crawlErrorsController(
   req: RequestWithAuth<CrawlStatusParams, undefined, CrawlErrorsResponse>,
   res: Response<CrawlErrorsResponse>,
 ) {
-  // Validate UUID format before hitting any database or Redis
   if (!isUUID(req.params.jobId)) {
     return res.status(400).json({
       success: false,
