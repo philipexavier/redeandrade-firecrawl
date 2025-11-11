@@ -12,12 +12,21 @@ import { logger as _logger } from "../../lib/logger";
 import { deserializeTransportableError } from "../../lib/error-serde";
 import { TransportableError } from "../../lib/error";
 import { scrapeQueue } from "../../services/worker/nuq";
+import { validate as isUUID } from "uuid";
 configDotenv();
 
 export async function crawlErrorsController(
   req: RequestWithAuth<CrawlStatusParams, undefined, CrawlErrorsResponse>,
   res: Response<CrawlErrorsResponse>,
 ) {
+  // Validate UUID format before hitting any database or Redis
+  if (!isUUID(req.params.jobId)) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid job ID format. Job ID must be a valid UUID.",
+    });
+  }
+
   const sc = await getCrawl(req.params.jobId);
 
   if (sc) {

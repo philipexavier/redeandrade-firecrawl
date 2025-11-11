@@ -5,12 +5,21 @@ import * as Sentry from "@sentry/node";
 import { configDotenv } from "dotenv";
 import { RequestWithAuth } from "./types";
 import { crawlGroup } from "../../services/worker/nuq";
+import { validate as isUUID } from "uuid";
 configDotenv();
 
 export async function crawlCancelController(
   req: RequestWithAuth<{ jobId: string }>,
   res: Response,
 ) {
+  // Validate UUID format before hitting any database or Redis
+  if (!isUUID(req.params.jobId)) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid job ID format. Job ID must be a valid UUID.",
+    });
+  }
+
   try {
     const sc = await getCrawl(req.params.jobId);
     if (!sc) {

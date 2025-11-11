@@ -7,6 +7,7 @@ import { ExtractResult } from "../../lib/extract/extraction-service";
 import { supabaseGetJobByIdDirect } from "../../lib/supabase-jobs";
 import { JobState } from "bullmq";
 import { logger as _logger } from "../../lib/logger";
+import { validate as isUUID } from "uuid";
 
 type ExtractPseudoJob<T> = {
   id: string;
@@ -58,6 +59,14 @@ export async function extractStatusController(
   req: RequestWithAuth<{ jobId: string }, any, any>,
   res: Response,
 ) {
+  // Validate UUID format before hitting any database or Redis
+  if (!isUUID(req.params.jobId)) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid job ID format. Job ID must be a valid UUID.",
+    });
+  }
+
   const logger = _logger.child({
     module: "v1/extract-status",
     method: "extractStatusController",

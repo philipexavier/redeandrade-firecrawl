@@ -8,7 +8,7 @@ import {
   RequestWithAuth,
 } from "./types";
 import { WebSocket } from "ws";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuidv4, validate as isUUID } from "uuid";
 import { logger } from "../../lib/logger";
 import {
   getCrawl,
@@ -62,6 +62,14 @@ async function crawlStatusWS(
   ws: WebSocket,
   req: RequestWithAuth<CrawlStatusParams, undefined, undefined>,
 ) {
+  // Validate UUID format before hitting any database or Redis
+  if (!isUUID(req.params.jobId)) {
+    return close(ws, 1008, {
+      type: "error",
+      error: "Invalid job ID format. Job ID must be a valid UUID.",
+    });
+  }
+
   const sc = await getCrawl(req.params.jobId);
   if (!sc) {
     return close(ws, 1008, { type: "error", error: "Job not found" });

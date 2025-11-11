@@ -30,6 +30,7 @@ import {
 import { ScrapeJobSingleUrls } from "../../types";
 import { redisEvictConnection } from "../../../src/services/redis";
 import { isBaseDomain, extractBaseDomain } from "../../lib/url-utils";
+import { validate as isUUID } from "uuid";
 configDotenv();
 
 export type PseudoJob<T> = {
@@ -174,6 +175,14 @@ export async function crawlStatusController(
   res: Response<CrawlStatusResponse>,
   isBatch = false,
 ) {
+  // Validate UUID format before hitting any database or Redis
+  if (!isUUID(req.params.jobId)) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid job ID format. Job ID must be a valid UUID.",
+    });
+  }
+
   const isPreviewTeam = req.auth.team_id?.startsWith("preview");
   const start =
     typeof req.query.skip === "string" ? parseInt(req.query.skip, 10) : 0;
