@@ -11,7 +11,7 @@ import {
 import { billTeam } from "../../services/billing/credit_billing";
 import { v7 as uuidv7 } from "uuid";
 import { addScrapeJob, waitForJob } from "../../services/queue-jobs";
-import { logJob } from "../../services/logging/log_job";
+import { logSearch } from "../../services/logging/log_job";
 import { search } from "../../search";
 import { isUrlBlocked } from "../../scraper/WebScraper/utils/blocklist";
 import * as Sentry from "@sentry/node";
@@ -425,29 +425,26 @@ export async function searchController(
       time_taken: timeTakenInSeconds,
     });
 
-    logJob(
+    logSearch(
       {
-        job_id: jobId,
+        id: jobId,
+        request_id: jobId,
+        query: req.body.query,
         success: true,
-        num_docs: responseData.data.length,
-        docs: responseData.data,
+        error: undefined,
+        results: responseData.data,
+        num_results: responseData.data.length,
         time_taken: timeTakenInSeconds,
         team_id: req.auth.team_id,
-        mode: "search",
-        url: req.body.query,
-        scrapeOptions: req.body.scrapeOptions,
-        crawlerOptions: {
+        options: {
           ...req.body,
           query: undefined,
           scrapeOptions: undefined,
         },
-        origin: req.body.origin,
-        integration: req.body.integration,
-        credits_billed,
+        credits_cost: credits_billed,
         zeroDataRetention: false, // not supported
       },
       false,
-      isSearchPreview,
     );
 
     // Log final timing information

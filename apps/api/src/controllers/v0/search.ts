@@ -5,7 +5,7 @@ import {
 } from "../../services/billing/credit_billing";
 import { authenticateUser } from "../auth";
 import { RateLimiterMode, ScrapeJobSingleUrls } from "../../types";
-import { logJob } from "../../services/logging/log_job";
+import { logSearch } from "../../services/logging/log_job";
 import { PageOptions, SearchOptions } from "../../lib/entities";
 import { search } from "../../search";
 import { isUrlBlocked } from "../../scraper/WebScraper/utils/blocklist";
@@ -230,25 +230,20 @@ export async function searchController(req: Request, res: Response) {
     );
     const endTime = new Date().getTime();
     const timeTakenInSeconds = (endTime - startTime) / 1000;
-    logJob({
-      job_id: jobId,
+    logSearch({
+      id: jobId,
+      request_id: jobId,
+      query: req.body.query,
+      num_results: result.data?.length ?? 0,
       success: result.success,
-      message: result.error,
-      num_docs: result.data ? result.data.length : 0,
-      docs: result.data,
+      error: result.error,
+      results: result.data,
       time_taken: timeTakenInSeconds,
       team_id: team_id,
-      mode: "search",
-      url: req.body.query,
-      scrapeOptions: fromLegacyScrapeOptions(
-        req.body.pageOptions,
-        undefined,
-        60000,
-        team_id,
-      ),
-      crawlerOptions: crawlerOptions,
-      origin,
-      integration: req.body.integration,
+      options: searchOptions,
+      credits_cost: pageOptions.fetchPageContent
+        ? 0
+        : (result.data?.length ?? 0),
       zeroDataRetention: false, // not supported
     });
     return res.status(result.returnCode).json(result);

@@ -44,7 +44,6 @@ import { CostTracking } from "../../lib/cost-tracking";
 import { normalizeUrlOnlyHostname } from "../../lib/canonical-url";
 import { isUrlBlocked } from "../../scraper/WebScraper/utils/blocklist";
 import { BLOCKLISTED_URL_MESSAGE } from "../../lib/strings";
-import { logJob } from "../logging/log_job";
 import { generateURLSplits, queryIndexAtSplitLevel } from "../index";
 import { WebCrawler } from "../../scraper/WebScraper/crawler";
 import { calculateCreditsToBeBilled } from "../../lib/scrape-billing";
@@ -72,6 +71,7 @@ import {
   setSpanAttributes,
 } from "../../lib/otel-tracer";
 import { ScrapeUrlResponse } from "../../scraper/scrapeURL";
+import { logScrape } from "../logging/log_job";
 
 configDotenv();
 
@@ -455,31 +455,22 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
       doc.metadata.creditsUsed = credits_billed ?? undefined;
 
       logger.debug("Logging job to DB...");
-      await logJob(
+      await logScrape(
         {
-          job_id: job.id as string,
+          id: job.id,
+          request_id: job.data.crawl_id ?? job.id,
+          url: job.data.url,
           success: true,
-          num_docs: 1,
-          docs: [doc],
+          doc,
           time_taken: timeTakenInSeconds,
           team_id: job.data.team_id,
-          mode: job.data.mode,
-          url: job.data.url,
-          crawlerOptions: sc.crawlerOptions,
-          scrapeOptions: job.data.scrapeOptions,
-          origin: job.data.origin,
-          integration: job.data.integration,
-          crawl_id: job.data.crawl_id,
-          cost_tracking: costTracking,
+          options: job.data.scrapeOptions,
+          cost_tracking: costTracking.toJSON(),
           pdf_num_pages: doc.metadata.numPages,
-          credits_billed,
-          change_tracking_tag:
-            hasFormatOfType(job.data.scrapeOptions.formats, "changeTracking")
-              ?.tag ?? null,
+          credits_cost: credits_billed ?? 0,
           zeroDataRetention: job.data.zeroDataRetention,
         },
         true,
-        job.data.internalOptions?.bypassBilling ?? false,
       );
 
       if (job.data.v1) {
@@ -531,31 +522,22 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
 
       doc.metadata.creditsUsed = credits_billed ?? undefined;
 
-      await logJob(
+      await logScrape(
         {
-          job_id: job.id,
+          id: job.id,
+          request_id: job.data.crawl_id ?? job.id,
+          url: job.data.url,
           success: true,
-          message: "Scrape completed",
-          num_docs: 1,
-          docs: [doc],
+          doc,
           time_taken: timeTakenInSeconds,
           team_id: job.data.team_id,
-          mode: "scrape",
-          url: job.data.url,
-          scrapeOptions: job.data.scrapeOptions,
-          origin: job.data.origin,
-          integration: job.data.integration,
-          num_tokens: 0, // TODO: fix
-          cost_tracking: costTracking,
+          options: job.data.scrapeOptions,
+          cost_tracking: costTracking.toJSON(),
           pdf_num_pages: doc.metadata.numPages,
-          credits_billed,
-          change_tracking_tag:
-            hasFormatOfType(job.data.scrapeOptions.formats, "changeTracking")
-              ?.tag ?? null,
+          credits_cost: credits_billed ?? 0,
           zeroDataRetention: job.data.zeroDataRetention,
         },
         false,
-        job.data.internalOptions?.bypassBilling ?? false,
       );
     }
 
@@ -686,32 +668,25 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
     );
 
     logger.debug("Logging job to DB...");
-    await logJob(
+    await logScrape(
       {
-        job_id: job.id as string,
+        id: job.id,
+        request_id: job.data.crawl_id ?? job.id,
+        url: job.data.url,
         success: false,
-        message:
+        error:
           typeof error === "string"
             ? error
             : (error.message ??
               "Something went wrong... Contact help@mendable.ai"),
-        num_docs: 0,
-        docs: [],
         time_taken: timeTakenInSeconds,
         team_id: job.data.team_id,
-        mode: job.data.mode,
-        url: job.data.url,
-        crawlerOptions: job.data.crawlerOptions,
-        scrapeOptions: job.data.scrapeOptions,
-        origin: job.data.origin,
-        integration: job.data.integration,
-        crawl_id: job.data.crawl_id,
-        cost_tracking: costTracking,
-        credits_billed,
+        options: job.data.scrapeOptions,
+        cost_tracking: costTracking.toJSON(),
+        credits_cost: credits_billed ?? 0,
         zeroDataRetention: job.data.zeroDataRetention,
       },
       true,
-      job.data.internalOptions?.bypassBilling ?? false,
     );
     return data;
   } finally {
