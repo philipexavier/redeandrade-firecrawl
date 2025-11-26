@@ -193,7 +193,11 @@ export async function logScrape(scrape: LoggedScrape, force: boolean = false) {
     await saveScrapeToGCS(scrape);
   }
 
-  if (scrape.success && !scrape.zeroDataRetention) {
+  if (
+    scrape.success &&
+    !scrape.zeroDataRetention &&
+    process.env.USE_DB_AUTHENTICATION === "true"
+  ) {
     const hasMarkdown = hasFormatOfType(scrape.options.formats, "markdown");
     const hasChangeTracking = hasFormatOfType(
       scrape.options.formats,
