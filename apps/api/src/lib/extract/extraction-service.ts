@@ -398,6 +398,7 @@ export async function performExtraction(
               timeout,
               flags: acuc?.flags ?? null,
               apiKeyId,
+              requestId: extractId,
             },
             urlTraces,
             logger.child({
@@ -742,6 +743,7 @@ export async function performExtraction(
               timeout,
               flags: acuc?.flags ?? null,
               apiKeyId,
+              requestId: extractId,
             },
             urlTraces,
             logger.child({

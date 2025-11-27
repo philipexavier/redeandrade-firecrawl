@@ -11,7 +11,7 @@ import {
 import { billTeam } from "../../services/billing/credit_billing";
 import { v7 as uuidv7 } from "uuid";
 import { addScrapeJob, waitForJob } from "../../services/queue-jobs";
-import { logSearch } from "../../services/logging/log_job";
+import { logSearch, logRequest } from "../../services/logging/log_job";
 import { search } from "../../search";
 import { isUrlBlocked } from "../../scraper/WebScraper/utils/blocklist";
 import * as Sentry from "@sentry/node";
@@ -40,6 +40,7 @@ export async function searchAndScrapeSearchResult(
     timeout: number;
     scrapeOptions: ScrapeOptions;
     apiKeyId: number | null;
+    requestId?: string;
   },
   logger: Logger,
   flags: TeamFlags,
@@ -80,6 +81,7 @@ async function scrapeSearchResult(
     timeout: number;
     scrapeOptions: ScrapeOptions;
     apiKeyId: number | null;
+    requestId?: string;
   },
   logger: Logger,
   flags: TeamFlags,
@@ -138,6 +140,7 @@ async function scrapeSearchResult(
         startTime: Date.now(),
         zeroDataRetention,
         apiKeyId: options.apiKeyId,
+        requestId: options.requestId,
       },
       jobId,
       jobPriority,
@@ -268,6 +271,16 @@ export async function searchController(
       origin: req.body.origin,
     });
 
+    await logRequest({
+      id: jobId,
+      kind: "search",
+      api_version: "v1",
+      team_id: req.auth.team_id,
+      origin: req.body.origin ?? "api",
+      target_hint: req.body.query,
+      zeroDataRetention: false, // not supported for search
+    });
+
     let limit = req.body.limit;
 
     // Buffer results by 50% to account for filtered URLs
@@ -326,6 +339,7 @@ export async function searchController(
             timeout: req.body.timeout,
             scrapeOptions: req.body.scrapeOptions,
             apiKeyId: req.acuc?.api_key_id ?? null,
+            requestId: jobId,
           },
           logger,
           req.acuc?.flags ?? null,

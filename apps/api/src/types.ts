@@ -18,6 +18,7 @@ type ScrapeJobCommon = {
   zeroDataRetention: boolean;
   traceContext?: SerializedTraceContext;
   skipNuq?: boolean;
+  requestId?: string;
 };
 
 export type ScrapeJobData = ScrapeJobCommon &

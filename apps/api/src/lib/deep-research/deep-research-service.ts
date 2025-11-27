@@ -151,6 +151,7 @@ export async function performDeepResearch(options: DeepResearchServiceOptions) {
               proxy: "basic",
             },
             apiKeyId: apiKeyId,
+            requestId: researchId,
           },
           logger,
           acuc?.flags ?? null,

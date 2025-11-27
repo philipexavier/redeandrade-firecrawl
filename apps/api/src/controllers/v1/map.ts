@@ -18,7 +18,7 @@ import {
 } from "../../lib/validateUrl";
 import { fireEngineMap } from "../../search/fireEngine";
 import { billTeam } from "../../services/billing/credit_billing";
-import { logMap } from "../../services/logging/log_job";
+import { logMap, logRequest } from "../../services/logging/log_job";
 import { performCosineSimilarity } from "../../lib/map-cosine";
 import { logger } from "../../lib/logger";
 import Redis from "ioredis";
@@ -96,6 +96,7 @@ export async function getMapResults({
   useIndex = true,
   timeout,
   location,
+  id: providedId,
 }: {
   url: string;
   search?: string;
@@ -114,8 +115,9 @@ export async function getMapResults({
   useIndex?: boolean;
   timeout?: number;
   location?: ScrapeOptions["location"];
+  id?: string;
 }): Promise<MapResult> {
-  const id = uuidv7();
+  const id = providedId ?? uuidv7();
   let links: string[] = [url];
   let mapResults: MapDocument[] = [];
 
@@ -376,10 +378,23 @@ export async function mapController(
 
   const middlewareTime = controllerStartTime - middlewareStartTime;
 
+  const mapId = uuidv7();
+
   logger.info("Map request", {
     request: req.body,
     originalRequest,
     teamId: req.auth.team_id,
+    mapId,
+  });
+
+  await logRequest({
+    id: mapId,
+    kind: "map",
+    api_version: "v1",
+    team_id: req.auth.team_id,
+    origin: req.body.origin ?? "api",
+    target_hint: req.body.url,
+    zeroDataRetention: false, // not supported for map
   });
 
   let result: Awaited<ReturnType<typeof getMapResults>>;
@@ -404,6 +419,7 @@ export async function mapController(
         useIndex: req.body.useIndex,
         timeout: req.body.timeout,
         location: req.body.location,
+        id: mapId,
       }),
       ...(req.body.timeout !== undefined
         ? [

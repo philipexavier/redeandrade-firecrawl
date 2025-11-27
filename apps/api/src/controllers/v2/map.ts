@@ -7,7 +7,7 @@ import {
 } from "./types";
 import { configDotenv } from "dotenv";
 import { billTeam } from "../../services/billing/credit_billing";
-import { logMap } from "../../services/logging/log_job";
+import { logMap, logRequest } from "../../services/logging/log_job";
 import { logger as _logger } from "../../lib/logger";
 import { MapTimeoutError } from "../../lib/error";
 import { checkPermissions } from "../../lib/permissions";
@@ -46,10 +46,23 @@ export async function mapController(
 
   const middlewareTime = controllerStartTime - middlewareStartTime;
 
+  const mapId = uuidv7();
+
   logger.info("Map request", {
     request: req.body,
     originalRequest,
     teamId: req.auth.team_id,
+    mapId,
+  });
+
+  await logRequest({
+    id: mapId,
+    kind: "map",
+    api_version: "v2",
+    team_id: req.auth.team_id,
+    origin: req.body.origin ?? "api",
+    target_hint: req.body.url,
+    zeroDataRetention: false, // not supported for map
   });
 
   let result: MapResult;
@@ -76,6 +89,7 @@ export async function mapController(
         flags: req.acuc?.flags ?? null,
         useIndex: req.body.useIndex,
         location: req.body.location,
+        id: mapId,
       }),
       ...(req.body.timeout !== undefined
         ? [

@@ -166,6 +166,7 @@ export async function performGenerateLlmsTxt(
                 isSingleUrl: true,
                 flags: acuc?.flags ?? null,
                 apiKeyId,
+                requestId: generationId,
               },
               [],
               logger,

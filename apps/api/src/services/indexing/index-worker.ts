@@ -520,7 +520,7 @@ const processPrecrawlJob = async (token: string, job: Job) => {
                 zeroDataRetention: false,
                 apiKeyId: null,
               },
-              crypto.randomUUID(),
+              uuidv7(),
             );
 
             submittedCrawls++;

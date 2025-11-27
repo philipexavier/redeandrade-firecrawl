@@ -10,7 +10,7 @@ import {
 } from "./types";
 import { v7 as uuidv7 } from "uuid";
 import { addScrapeJob, waitForJob } from "../../services/queue-jobs";
-import { logSearch } from "../../services/logging/log_job";
+import { logSearch, logRequest } from "../../services/logging/log_job";
 import { search } from "../../search";
 import { isUrlBlocked } from "../../scraper/WebScraper/utils/blocklist";
 import * as Sentry from "@sentry/node";
@@ -212,6 +212,16 @@ export async function x402SearchController(
     logger = logger.child({
       query: req.body.query,
       origin: req.body.origin,
+    });
+
+    await logRequest({
+      id: jobId,
+      kind: "search",
+      api_version: "v1",
+      team_id: req.auth.team_id,
+      origin: req.body.origin ?? "api",
+      target_hint: req.body.query,
+      zeroDataRetention: false, // not supported for x402 search
     });
 
     let limit = req.body.limit;

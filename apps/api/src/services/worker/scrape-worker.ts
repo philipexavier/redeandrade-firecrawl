@@ -458,7 +458,7 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
       await logScrape(
         {
           id: job.id,
-          request_id: job.data.crawl_id ?? job.id,
+          request_id: job.data.requestId ?? job.data.crawl_id ?? job.id,
           url: job.data.url,
           success: true,
           doc,
@@ -525,7 +525,7 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
       await logScrape(
         {
           id: job.id,
-          request_id: job.data.crawl_id ?? job.id,
+          request_id: job.data.requestId ?? job.data.crawl_id ?? job.id,
           url: job.data.url,
           success: true,
           doc,
@@ -671,7 +671,7 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
     await logScrape(
       {
         id: job.id,
-        request_id: job.data.crawl_id ?? job.id,
+        request_id: job.data.requestId ?? job.data.crawl_id ?? job.id,
         url: job.data.url,
         success: false,
         error:

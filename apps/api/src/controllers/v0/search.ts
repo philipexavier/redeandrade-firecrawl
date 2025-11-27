@@ -5,7 +5,7 @@ import {
 } from "../../services/billing/credit_billing";
 import { authenticateUser } from "../auth";
 import { RateLimiterMode, ScrapeJobSingleUrls } from "../../types";
-import { logSearch } from "../../services/logging/log_job";
+import { logSearch, logRequest } from "../../services/logging/log_job";
 import { PageOptions, SearchOptions } from "../../lib/entities";
 import { search } from "../../search";
 import { isUrlBlocked } from "../../scraper/WebScraper/utils/blocklist";
@@ -119,6 +119,7 @@ async function searchHelper(
         zeroDataRetention: false, // not supported on v0
         apiKeyId: api_key_id,
         origin: req.body.origin ?? defaultOrigin,
+        requestId: jobId,
       } satisfies ScrapeJobSingleUrls,
     };
   });
@@ -176,6 +177,16 @@ export async function searchController(req: Request, res: Response) {
     }
 
     const jobId = uuidv7();
+
+    await logRequest({
+      id: jobId,
+      kind: "search",
+      api_version: "v0",
+      team_id,
+      origin: req.body.origin ?? "api",
+      target_hint: req.body.query ?? "",
+      zeroDataRetention: false, // not supported on v0
+    });
 
     redisEvictConnection.sadd("teams_using_v0", team_id).catch(error =>
       logger.error("Failed to add team to teams_using_v0", {

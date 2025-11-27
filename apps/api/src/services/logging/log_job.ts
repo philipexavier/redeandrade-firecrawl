@@ -91,10 +91,11 @@ type LoggedRequest = {
     | "search"
     | "extract"
     | "llmstxt"
-    | "deep_research";
+    | "deep_research"
+    | "map";
   api_version: string;
   team_id: string;
-  origin: string;
+  origin?: string;
   integration?: string | null;
   target_hint: string;
   zeroDataRetention: boolean;

@@ -61,7 +61,7 @@ export async function finishCrawlSuper(job: NuQJob<any>) {
       await logCrawl(
         {
           id: crawlId,
-          request_id: crawlId,
+          request_id: job.data.requestId ?? crawlId,
           url: sc.originUrl!,
           team_id: job.data.team_id,
           options: sc.crawlerOptions,
@@ -79,7 +79,7 @@ export async function finishCrawlSuper(job: NuQJob<any>) {
       await logBatchScrape(
         {
           id: crawlId,
-          request_id: crawlId,
+          request_id: job.data.requestId ?? crawlId,
           team_id: job.data.team_id,
           num_docs: fullDocs.length,
           credits_cost: fullDocs.reduce(
@@ -149,7 +149,7 @@ export async function finishCrawlSuper(job: NuQJob<any>) {
       await logCrawl(
         {
           id: crawlId,
-          request_id: crawlId,
+          request_id: job.data.requestId ?? crawlId,
           url: sc.originUrl!,
           team_id: job.data.team_id,
           options: sc.crawlerOptions,
@@ -164,7 +164,7 @@ export async function finishCrawlSuper(job: NuQJob<any>) {
       await logBatchScrape(
         {
           id: crawlId,
-          request_id: crawlId,
+          request_id: job.data.requestId ?? crawlId,
           team_id: job.data.team_id,
           num_docs: num_docs,
           credits_cost: credits_billed ?? 0,
