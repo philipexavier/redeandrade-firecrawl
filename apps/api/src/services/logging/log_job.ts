@@ -363,6 +363,7 @@ export async function logSearch(search: LoggedSearch, force: boolean = false) {
       success: search.success,
       error: search.zeroDataRetention ? null : (search.error ?? null),
       num_results: search.num_results,
+      time_taken: search.time_taken,
     },
     force,
     logger,
