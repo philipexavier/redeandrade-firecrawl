@@ -125,11 +125,9 @@ export async function logRequest(request: LoggedRequest) {
       target_hint: request.zeroDataRetention
         ? "<redacted due to zero data retention>"
         : request.target_hint,
-      dr_clean_by:
-        request.zeroDataRetention &&
-        (request.kind === "crawl" || request.kind === "batch_scrape")
-          ? new Date(Date.now() + 24 * 60 * 60 * 1000)
-          : null,
+      dr_clean_by: request.zeroDataRetention
+        ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+        : null,
     },
     true,
     logger,

@@ -9,10 +9,13 @@ async function cleanUpJob(jobId: string) {
   await removeJobFromGCS(jobId);
 }
 
-async function cleanUp(specificTeamId: string | null, _logger: Logger) {
+async function cleanUpFirecrawlJobs(
+  specificTeamId: string | null,
+  _logger: Logger,
+) {
   const logger = _logger.child({
     ...(specificTeamId ? { teamId: specificTeamId } : {}),
-    method: "cleanUp",
+    method: "cleanUpFirecrawlJobs",
   });
 
   const cleanedUp: number[] = [];
@@ -97,13 +100,102 @@ async function cleanUp(specificTeamId: string | null, _logger: Logger) {
   }
 }
 
+async function cleanUpRequests(specificTeamId: string | null, _logger: Logger) {
+  const logger = _logger.child({
+    ...(specificTeamId ? { teamId: specificTeamId } : {}),
+    method: "cleanUpRequests",
+  });
+
+  const cleanedUpRequestIds = new Set<string>();
+
+  try {
+    for (let i = 0; ; i++) {
+      // Call the RPC to get all blobs (scrapes, searches, extracts, maps, llmstxts, deep_researches)
+      // associated with requests that need cleanup.
+      // The RPC handles the dr_clean_by filtering logic (team-specific vs scheduled)
+      const { data: rows, error } = await supabase_service.rpc(
+        "get_zdr_cleanup_batch",
+        {
+          p_team_id: specificTeamId,
+          p_limit: 1000,
+          p_offset: i * 1000,
+        },
+      );
+
+      if (error) {
+        logger.error("Error calling get_zdr_cleanup_batch RPC", { error });
+        throw error;
+      }
+
+      if (!rows || rows.length === 0) {
+        break;
+      }
+
+      // Process in batches of 50 for GCS cleanup
+      for (let j = 0; j < Math.ceil(rows.length / 50); j++) {
+        const batch = rows.slice(j * 50, (j + 1) * 50);
+        await Promise.allSettled(
+          batch.map(async (row: { request_id: string; blob_id: string }) => {
+            try {
+              await cleanUpJob(row.blob_id);
+              cleanedUpRequestIds.add(row.request_id);
+            } catch (error) {
+              logger.error(`Error cleaning up blob`, {
+                method: "cleanUpJob",
+                blobId: row.blob_id,
+                requestId: row.request_id,
+                error,
+              });
+              // Don't throw - continue with other blobs
+            }
+          }),
+        );
+      }
+
+      if (rows.length < 1000) {
+        break;
+      }
+    }
+  } catch (error) {
+    logger.error(`Error looping through cleanup batch`, {
+      error,
+    });
+  }
+
+  // Clear dr_clean_by on all requests that had blobs cleaned up
+  if (cleanedUpRequestIds.size > 0) {
+    try {
+      await supabase_service
+        .from("requests")
+        .update({
+          dr_clean_by: null,
+        })
+        .in("id", Array.from(cleanedUpRequestIds))
+        .throwOnError();
+
+      logger.info(`Cleaned up ${cleanedUpRequestIds.size} requests`);
+    } catch (error) {
+      logger.error(`Error clearing dr_clean_by on requests`, {
+        error,
+        requestCount: cleanedUpRequestIds.size,
+      });
+    }
+  }
+}
+
 export async function zdrcleanerController(req: Request, res: Response) {
   const logger = _logger.child({
     module: "zdrcleaner",
     method: "zdrcleanerController",
   });
 
-  await cleanUp((req.query.teamId as string | undefined) ?? null, logger);
+  const teamId = (req.query.teamId as string | undefined) ?? null;
+
+  // Clean up old firecrawl_jobs table (legacy)
+  await cleanUpFirecrawlJobs(teamId, logger);
+
+  // Clean up new requests/scrapes tables
+  await cleanUpRequests(teamId, logger);
 
   logger.info("ZDR Cleaner finished!");
 
