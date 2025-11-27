@@ -393,6 +393,7 @@ export async function mapController(
     api_version: "v1",
     team_id: req.auth.team_id,
     origin: req.body.origin ?? "api",
+    integration: req.body.integration,
     target_hint: req.body.url,
     zeroDataRetention: false, // not supported for map
   });

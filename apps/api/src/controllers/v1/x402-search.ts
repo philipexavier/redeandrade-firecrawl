@@ -220,6 +220,7 @@ export async function x402SearchController(
       api_version: "v1",
       team_id: req.auth.team_id,
       origin: req.body.origin ?? "api",
+      integration: req.body.integration,
       target_hint: req.body.query,
       zeroDataRetention: false, // not supported for x402 search
     });

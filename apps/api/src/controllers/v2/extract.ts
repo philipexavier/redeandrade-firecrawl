@@ -67,6 +67,7 @@ export async function extractController(
     api_version: "v2",
     team_id: req.auth.team_id,
     origin: req.body.origin ?? "api",
+    integration: req.body.integration,
     target_hint: req.body.urls?.[0] ?? "",
     zeroDataRetention: false, // not supported for extract
   });

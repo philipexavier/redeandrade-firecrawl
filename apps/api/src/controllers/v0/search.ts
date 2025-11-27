@@ -184,6 +184,7 @@ export async function searchController(req: Request, res: Response) {
       api_version: "v0",
       team_id,
       origin: req.body.origin ?? "api",
+      integration: req.body.integration,
       target_hint: req.body.query ?? "",
       zeroDataRetention: false, // not supported on v0
     });

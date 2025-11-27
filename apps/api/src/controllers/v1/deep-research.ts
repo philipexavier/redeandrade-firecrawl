@@ -98,6 +98,7 @@ export async function deepResearchController(
     kind: "deep_research",
     api_version: "v1",
     team_id: req.auth.team_id,
+    origin: "api",
     target_hint: req.body.query ?? "",
     zeroDataRetention: false, // not supported for deep research
   });
