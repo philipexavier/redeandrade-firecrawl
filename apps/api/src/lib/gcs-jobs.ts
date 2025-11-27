@@ -212,7 +212,17 @@ export async function saveExtractToGCS(extract: LoggedExtract): Promise<void> {
         });
         setSpanAttributes(span, { "gcs.save_successful": true });
         break;
-      } catch (error) {}
+      } catch (error) {
+        if (i === 2) {
+          throw error;
+        } else {
+          logger.error(`Error saving extract to GCS, retrying`, {
+            error,
+            extractId: extract.id,
+            i,
+          });
+        }
+      }
     }
 
     for (let i = 0; i < 3; i++) {
@@ -276,7 +286,17 @@ export async function saveMapToGCS(map: LoggedMap): Promise<void> {
         });
         setSpanAttributes(span, { "gcs.save_successful": true });
         break;
-      } catch (error) {}
+      } catch (error) {
+        if (i === 2) {
+          throw error;
+        } else {
+          logger.error(`Error saving map to GCS, retrying`, {
+            error,
+            mapId: map.id,
+            i,
+          });
+        }
+      }
     }
 
     for (let i = 0; i < 3; i++) {
