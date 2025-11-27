@@ -147,6 +147,7 @@ export type LoggedScrape = {
   cost_tracking?: ReturnType<typeof CostTracking.prototype.toJSON>;
   pdf_num_pages?: number;
   credits_cost: number;
+  skipNuq: boolean;
   zeroDataRetention: boolean;
 };
 
@@ -188,7 +189,11 @@ export async function logScrape(scrape: LoggedScrape, force: boolean = false) {
     logger,
   );
 
-  if (scrape.doc && process.env.GCS_BUCKET_NAME) {
+  if (
+    scrape.doc &&
+    process.env.GCS_BUCKET_NAME &&
+    !(scrape.skipNuq && scrape.zeroDataRetention)
+  ) {
     await saveScrapeToGCS(scrape);
   }
 
