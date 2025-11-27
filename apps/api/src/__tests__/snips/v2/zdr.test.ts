@@ -42,6 +42,8 @@ const logIgnoreList = [
   "Acquired job",
   "nuqGetJob metrics",
   "nuqJobFinish metrics",
+  "Starting to update tallies",
+  "tally for team",
 ];
 
 async function getLogs() {
