@@ -36,8 +36,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no
     && chmod -R a+w $RUSTUP_HOME $CARGO_HOME
 
 # Copy source files
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY . .
+COPY apps/api/pnpm-lock.yaml apps/api/pnpm-workspace.yaml apps/api/package.json ./
+COPY apps/api . 
 
 # Install dependencies
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
@@ -59,6 +59,8 @@ RUN apt-get update && apt-get install -y \
     git \
     procps \
     && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 
 EXPOSE 8080
 WORKDIR /app
