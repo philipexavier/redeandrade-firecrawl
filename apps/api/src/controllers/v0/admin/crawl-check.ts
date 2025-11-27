@@ -14,8 +14,9 @@ type AnalyzedCrawlPass1 = {
   id: string;
   teamId: string;
   crawl: StoredCrawl | null;
-  latestJob: any[];
-  overarchingJob: any[];
+  latestScrape: any[];
+  request: any[];
+  crawlRecord: any[];
   jobsDoneCount: number;
   jobsCount: number;
   jobsNotDone: Set<string>;
@@ -66,28 +67,35 @@ async function analyzeCrawlPass1(
     };
   }
 
-  const { data: latestJob, error: latestJobError } = await supabase_service
-    .from("firecrawl_jobs")
-    .select("*")
-    .eq("crawl_id", id)
-    .order("date_added", { ascending: false })
-    .limit(1);
-
-  const { data: overarchingJob, error: overarchingJobError } =
+  // Get the latest scrape for this crawl/batch scrape
+  const { data: latestScrape, error: latestScrapeError } =
     await supabase_service
-      .from("firecrawl_jobs")
+      .from("scrapes")
       .select("*")
-      .eq("job_id", id)
+      .eq("request_id", id)
+      .order("created_at", { ascending: false })
       .limit(1);
 
-  if (latestJobError || overarchingJobError) {
+  // Get the request (crawl/batch scrape) record
+  const { data: request, error: requestError } = await supabase_service
+    .from("requests")
+    .select("*")
+    .eq("id", id)
+    .limit(1);
+
+  // Get the crawl record for crawler_options
+  const { data: crawlRecord, error: crawlError } = await supabase_service
+    .from("crawls")
+    .select("*")
+    .eq("id", id)
+    .limit(1);
+
+  if (latestScrapeError || requestError) {
     return {
       success: false,
       id,
       error:
-        latestJobError?.message ??
-        overarchingJobError?.message ??
-        "unknown error",
+        latestScrapeError?.message ?? requestError?.message ?? "unknown error",
     };
   }
 
@@ -108,15 +116,16 @@ async function analyzeCrawlPass1(
     success: true,
     id,
     crawl,
-    latestJob,
-    overarchingJob,
+    latestScrape: latestScrape ?? [],
+    request: request ?? [],
+    crawlRecord: crawlRecord ?? [],
     jobsDoneCount,
     jobsCount,
     jobsNotDone,
     teamId:
       crawl?.team_id ??
-      latestJob[0].team_id ??
-      overarchingJob[0].team_id ??
+      latestScrape?.[0]?.team_id ??
+      request?.[0]?.team_id ??
       "unknown",
   };
 }
@@ -126,8 +135,9 @@ async function analyzeCrawlPass2(
     id,
     teamId,
     crawl,
-    latestJob,
-    overarchingJob,
+    latestScrape,
+    request,
+    crawlRecord,
     jobsDoneCount,
     jobsCount,
     jobsNotDone,
@@ -159,19 +169,21 @@ async function analyzeCrawlPass2(
     ),
   );
 
+  // Check if finished: request exists in DB means crawl is done
+  const isFinished = request[0] !== undefined;
+
+  // Get delay from crawl options (in crawls table or redis crawl)
+  const delay = crawl?.crawlerOptions?.delay ?? crawlRecord[0]?.options?.delay;
+
   return {
     success: true,
     id,
     teamId,
-    status: overarchingJob[0]
+    status: isFinished
       ? "finished"
       : jobsNotDoneNorConcurrencyQueuedNorInQueue.size === 0
         ? "working"
-        : (
-              crawl?.crawlerOptions ??
-              overarchingJob[0]?.crawler_options ??
-              latestJob[0]?.crawler_options
-            )?.delay > 0
+        : delay > 0
           ? "stuck_delay"
           : jobsInQueueStalled.size > 0
             ? "stuck_stalled"
@@ -188,14 +200,11 @@ async function analyzeCrawlPass2(
       outstanding: jobsNotDoneNorConcurrencyQueuedNorInQueue.size,
     },
     outstandingJobs: Array.from(jobsNotDoneNorConcurrencyQueuedNorInQueue),
-    type: overarchingJob[0]
-      ? overarchingJob[0].crawler_options !== null
-        ? "crawl"
-        : "batch_scrape"
-      : latestJob[0]
-        ? latestJob[0].crawler_options !== null
-          ? "crawl"
-          : "batch_scrape"
+    // Determine type: if crawlRecord exists, it's a crawl; if request is batch_scrape kind, it's batch_scrape
+    type: crawlRecord[0]
+      ? "crawl"
+      : request[0]?.kind === "batch_scrape"
+        ? "batch_scrape"
         : crawl
           ? crawl.crawlerOptions !== null
             ? "crawl"
@@ -203,10 +212,7 @@ async function analyzeCrawlPass2(
           : "not_sure",
     createdAt: new Date(crawl?.createdAt ?? 0).toISOString(),
     updatedAt: new Date(
-      overarchingJob[0]?.date_added ??
-        latestJob[0]?.date_added ??
-        crawl?.createdAt ??
-        0,
+      latestScrape[0]?.created_at ?? crawl?.createdAt ?? 0,
     ).toISOString(),
   };
 }

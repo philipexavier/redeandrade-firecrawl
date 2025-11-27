@@ -173,9 +173,9 @@ async function scrapeSearchResult(
     if (process.env.USE_DB_AUTHENTICATION === "true") {
       const { data: costTrackingResponse, error: costTrackingError } =
         await supabase_service
-          .from("firecrawl_jobs")
+          .from("scrapes")
           .select("cost_tracking")
-          .eq("job_id", jobId);
+          .eq("id", jobId);
 
       if (costTrackingError) {
         logger.error("Error getting cost tracking", {
